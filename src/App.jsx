@@ -1,17 +1,31 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./App.css";
 
 export default function App() {
   const [input, setInput] = useState("");
-  const [response, setResponse] = useState("");
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content: "Hello! I am an AI Assistant created by Ather, a student at Sukkur IBA University. How can I help you today?"
+    }
+  ]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const bottomRef = useRef(null);
 
-  async function askAI() {
-    if (!input.trim()) return;
+  // Auto scroll to bottom when new message arrives
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  async function sendMessage() {
+    if (!input.trim() || loading) return;
+
+    const userMessage = { role: "user", content: input };
+    const updatedMessages = [...messages, userMessage];
+
+    setMessages(updatedMessages);
+    setInput("");
     setLoading(true);
-    setResponse("");
-    setError("");
 
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -21,23 +35,19 @@ export default function App() {
           "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
         },
         body: JSON.stringify({
-          model: "openai/gpt-oss-120b",
+          model: "openai/gpt-4o",
           messages: [
             {
               role: "system",
-              content: `You are a helpful ANTHER AI created by Ather, 
+              content: `You are a helpful AI assistant created by Ather,
               a student at Sukkur IBA University, Pakistan.
-              
-              If anyone asks who created you, who made you, or who built you — always answer:
+              If anyone asks who created you, who made you, or who built you:
               "I was created by Ather, a student at Sukkur IBA University, Pakistan."
-              
               Never say you are made by Meta, Groq, OpenAI or any other company.
-              Always be helpful, clear and concise in your answers.`
+              Be helpful, clear and concise.`
             },
-            {
-              role: "user",
-              content: input
-            }
+            // Send full conversation history for context
+            ...updatedMessages
           ],
           max_tokens: 500
         })
@@ -46,68 +56,111 @@ export default function App() {
       const data = await res.json();
 
       if (data.error) {
-        setError(data.error.message);
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: "Sorry, something went wrong: " + data.error.message
+        }]);
       } else {
-        setResponse(data.choices[0].message.content);
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: data.choices[0].message.content
+        }]);
       }
 
     } catch (err) {
-      setError("Error: " + err.message);
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: "Error: " + err.message
+      }]);
     } finally {
       setLoading(false);
     }
   }
 
   function handleKeyDown(e) {
-    if (e.key === "Enter") askAI();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function clearChat() {
+    setMessages([{
+      role: "assistant",
+      content: "Hello! I am an AI Assistant created by Ather, a student at Sukkur IBA University. How can I help you today?"
+    }]);
   }
 
   return (
-    <div className="container">
-      <div className="header">
-        <div className="badge">AI Powered</div>
-        <h1>ANTHER AI</h1>
-        <p className="subtitle">Created by Ather — Sukkur IBA University</p>
-      </div>
+    <div className="chat-container">
 
-      <div className="input-wrapper">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask anything..."
-          disabled={loading}
-        />
-        <button onClick={askAI} disabled={loading}>
-          {loading ? "Thinking..." : "Ask AI"}
+      {/* Header */}
+      <div className="chat-header">
+        <div className="header-left">
+          <div className="avatar">A</div>
+          <div>
+            <h1>AI Assistant</h1>
+            <p className="online">● Online</p>
+          </div>
+        </div>
+        <button className="clear-btn" onClick={clearChat}>
+          Clear Chat
         </button>
       </div>
 
-      {loading && (
-        <div className="status">
-          <span className="dot"></span>
-          <span className="dot"></span>
-          <span className="dot"></span>
-        </div>
-      )}
+      {/* Messages */}
+      <div className="messages-wrapper">
+        {messages.map((msg, index) => (
+          <div
+            key={index}
+            className={`message-row ${msg.role === "user" ? "user-row" : "ai-row"}`}
+          >
+            {msg.role === "assistant" && (
+              <div className="msg-avatar">A</div>
+            )}
+            <div className={`message ${msg.role === "user" ? "user-msg" : "ai-msg"}`}>
+              {msg.content}
+            </div>
+            {msg.role === "user" && (
+              <div className="msg-avatar user-avatar">U</div>
+            )}
+          </div>
+        ))}
 
-      {error && (
-        <div className="response-box error-box">
-          <div className="response-label error-label">ERROR</div>
-          {error}
-        </div>
-      )}
+        {/* Loading dots */}
+        {loading && (
+          <div className="message-row ai-row">
+            <div className="msg-avatar">A</div>
+            <div className="message ai-msg typing">
+              <span className="dot"></span>
+              <span className="dot"></span>
+              <span className="dot"></span>
+            </div>
+          </div>
+        )}
 
-      {response && (
-        <div className="response-box">
-          <div className="response-label">AI Response</div>
-          <p className="response-text">{response}</p>
-        </div>
-      )}
-
-      <div className="footer">
-        Built with Groq API • Sukkur IBA University
+        <div ref={bottomRef} />
       </div>
+
+      {/* Input */}
+      <div className="input-area">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Type a message... (Enter to send)"
+          disabled={loading}
+          rows={1}
+        />
+        <button
+          className="send-btn"
+          onClick={sendMessage}
+          disabled={loading || !input.trim()}
+        >
+          ➤
+        </button>
+      </div>
+
     </div>
   );
 }
