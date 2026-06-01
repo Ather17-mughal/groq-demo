@@ -62,12 +62,13 @@ body {
   width: 100%;
   max-width: 720px;
   min-height: 100vh;
-  height: auto;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: var(--container-bg);
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 
 /* ── Header ── */
@@ -188,9 +189,11 @@ h1 {
 .messages-wrapper {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-bottom: 12px;
   scrollbar-width: thin;
   scrollbar-color: #2a2a3a transparent;
 }
