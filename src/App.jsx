@@ -13,7 +13,6 @@ export default function App() {
   const [speaking, setSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceSource, setVoiceSource] = useState("off");
-  const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
   const [isDarkMode, setIsDarkMode] = useState(true);
   const audioRef = useRef(null);
   const bottomRef = useRef(null);
@@ -27,7 +26,6 @@ export default function App() {
     try {
       setSpeaking(true);
       setVoiceSource("requesting");
-      setVoiceStatusMessage("Requesting ElevenLabs audio...");
 
       // Stop any current audio
       if (audioRef.current) {
@@ -62,14 +60,12 @@ export default function App() {
         const errorText = await res.text().catch(() => "<failed to read body>");
         console.error("ElevenLabs error:", res.status, res.statusText, errorText);
         setVoiceSource("fallback");
-        setVoiceStatusMessage(`ElevenLabs failed: ${res.status} ${res.statusText}`);
         // Fallback to browser voice if ElevenLabs fails
         fallbackSpeak(text);
         return;
       }
 
       setVoiceSource("elevenlabs");
-      setVoiceStatusMessage("Using ElevenLabs voice.");
       const audioBlob = await res.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
@@ -89,7 +85,6 @@ export default function App() {
       await audio.play().catch((err) => {
         console.warn("Audio play promise rejected, falling back to browser TTS.", err);
         setVoiceSource("fallback");
-        setVoiceStatusMessage("ElevenLabs audio playback failed, using browser fallback.");
         fallbackSpeak(text);
       });
 
@@ -97,7 +92,6 @@ export default function App() {
       console.error("Voice error:", err);
       console.log("Using fallback browser speech synthesis.");
       setVoiceSource("fallback");
-      setVoiceStatusMessage("ElevenLabs request failed, using browser fallback.");
       fallbackSpeak(text);
     }
   }
@@ -239,9 +233,6 @@ export default function App() {
                 ? "Voice: requesting ElevenLabs..."
                 : "Voice: checking..."}
             </p>
-            {voiceStatusMessage && (
-              <p className="voice-status-message">{voiceStatusMessage}</p>
-            )}
           </div>
         </div>
             <div className="header-buttons">
@@ -258,7 +249,6 @@ export default function App() {
               const enabled = !voiceEnabled;
               setVoiceEnabled(enabled);
               setVoiceSource(enabled ? "checking" : "off");
-              setVoiceStatusMessage(enabled ? "Voice enabled. New answers will speak." : "Voice disabled.");
             }}
           >
             {voiceEnabled ? "🔊 Voice On" : "🔈 Voice Off"}
