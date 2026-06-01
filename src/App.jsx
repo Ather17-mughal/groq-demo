@@ -6,16 +6,107 @@ export default function App() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: "Hello! I am ANTHER created by Ather, a student at Sukkur IBA University. How can I help you today?"
+      content: "Hello! I am an AI Assistant created by Ather, a student at Sukkur IBA University. How can I help you today?"
     }
   ]);
   const [loading, setLoading] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const audioRef = useRef(null);
   const bottomRef = useRef(null);
 
-  // Auto scroll to bottom when new message arrives
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // Speak welcome message on load
+  useEffect(() => {
+    speakText(messages[0].content);
+  }, []);
+
+  async function speakText(text) {
+    try {
+      setSpeaking(true);
+
+      // Stop any current audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+
+      const res = await fetch(
+        "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": import.meta.env.VITE_ELEVENLABS_API_KEY
+          },
+          body: JSON.stringify({
+            text: text,
+            model_id: "eleven_monolingual_v1",
+            voice_settings: {
+              stability: 0.5,
+              similarity_boost: 0.75,
+              style: 0.5,
+              use_speaker_boost: true
+            }
+          })
+        }
+      );
+
+      if (!res.ok) {
+        console.error("ElevenLabs error:", res.status);
+        // Fallback to browser voice if ElevenLabs fails
+        fallbackSpeak(text);
+        return;
+      }
+
+      const audioBlob = await res.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        setSpeaking(false);
+        fallbackSpeak(text);
+      };
+
+      audio.play();
+
+    } catch (err) {
+      console.error("Voice error:", err);
+      fallbackSpeak(text);
+    }
+  }
+
+  // Fallback to browser voice if ElevenLabs fails
+  function fallbackSpeak(text) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => v.name.includes('Google')) ||
+                      voices.find(v => v.lang === 'en-US');
+    if (preferred) utterance.voice = preferred;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopSpeaking() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
@@ -26,6 +117,7 @@ export default function App() {
     setMessages(updatedMessages);
     setInput("");
     setLoading(true);
+    stopSpeaking();
 
     try {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -39,14 +131,13 @@ export default function App() {
           messages: [
             {
               role: "system",
-              content: `You are a helpful ANTHER created by Ather,
+              content: `You are a helpful AI assistant created by Ather,
               a student at Sukkur IBA University, Pakistan.
               If anyone asks who created you, who made you, or who built you:
               "I was created by Ather, a student at Sukkur IBA University, Pakistan."
               Never say you are made by Meta, Groq, OpenAI or any other company.
               Be helpful, clear and concise.`
             },
-            // Send full conversation history for context
             ...updatedMessages
           ],
           max_tokens: 500
@@ -56,22 +147,19 @@ export default function App() {
       const data = await res.json();
 
       if (data.error) {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: "Sorry, something went wrong: " + data.error.message
-        }]);
+        const errMsg = "Sorry, something went wrong: " + data.error.message;
+        setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
+        speakText(errMsg);
       } else {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: data.choices[0].message.content
-        }]);
+        const aiReply = data.choices[0].message.content;
+        setMessages(prev => [...prev, { role: "assistant", content: aiReply }]);
+        speakText(aiReply);
       }
 
     } catch (err) {
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: "Error: " + err.message
-      }]);
+      const errMsg = "Error: " + err.message;
+      setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
+      speakText(errMsg);
     } finally {
       setLoading(false);
     }
@@ -85,9 +173,10 @@ export default function App() {
   }
 
   function clearChat() {
+    stopSpeaking();
     setMessages([{
       role: "assistant",
-      content: "Hello! I am ANTHER created by Ather, a student at Sukkur IBA University. How can I help you today?"
+      content: "Hello! I am an AI Assistant created by Ather, a student at Sukkur IBA University. How can I help you today?"
     }]);
   }
 
@@ -99,13 +188,22 @@ export default function App() {
         <div className="header-left">
           <div className="avatar">A</div>
           <div>
-            <h1>ANTHER</h1>
-            <p className="online">● Online</p>
+            <h1>AI Assistant</h1>
+            <p className="online">
+              {speaking ? "🔊 Speaking..." : "● Online"}
+            </p>
           </div>
         </div>
-        <button className="clear-btn" onClick={clearChat}>
-          Clear Chat
-        </button>
+        <div className="header-buttons">
+          {speaking && (
+            <button className="clear-btn stop-btn" onClick={stopSpeaking}>
+              ⏹ Stop
+            </button>
+          )}
+          <button className="clear-btn" onClick={clearChat}>
+            Clear
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -120,6 +218,15 @@ export default function App() {
             )}
             <div className={`message ${msg.role === "user" ? "user-msg" : "ai-msg"}`}>
               {msg.content}
+              {msg.role === "assistant" && (
+                <button
+                  className="replay-btn"
+                  onClick={() => speakText(msg.content)}
+                  title="Replay voice"
+                >
+                  🔊
+                </button>
+              )}
             </div>
             {msg.role === "user" && (
               <div className="msg-avatar user-avatar">U</div>
@@ -127,7 +234,6 @@ export default function App() {
           </div>
         ))}
 
-        {/* Loading dots */}
         {loading && (
           <div className="message-row ai-row">
             <div className="msg-avatar">A</div>
