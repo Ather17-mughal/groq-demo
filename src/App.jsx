@@ -6,7 +6,7 @@ export default function App() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: "Hello! I am an AI Assistant created by Ather, a student at Sukkur IBA University. How can I help you today?"
+      content: "Hello! I am ANTHER created by Ather, a student at Sukkur IBA University. How can I help you today?"
     }
   ]);
   const [loading, setLoading] = useState(false);
@@ -35,11 +35,11 @@ export default function App() {
           "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
         },
         body: JSON.stringify({
-          model: "openai/gpt-4o",
+          model: "openai/gpt-oss-120b",
           messages: [
             {
               role: "system",
-              content: `You are a helpful AI assistant created by Ather,
+              content: `You are a helpful ANTHER created by Ather,
               a student at Sukkur IBA University, Pakistan.
               If anyone asks who created you, who made you, or who built you:
               "I was created by Ather, a student at Sukkur IBA University, Pakistan."
@@ -87,7 +87,7 @@ export default function App() {
   function clearChat() {
     setMessages([{
       role: "assistant",
-      content: "Hello! I am an AI Assistant created by Ather, a student at Sukkur IBA University. How can I help you today?"
+      content: "Hello! I am ANTHER created by Ather, a student at Sukkur IBA University. How can I help you today?"
     }]);
   }
 
@@ -99,7 +99,7 @@ export default function App() {
         <div className="header-left">
           <div className="avatar">A</div>
           <div>
-            <h1>AI Assistant</h1>
+            <h1>ANTHER</h1>
             <p className="online">● Online</p>
           </div>
         </div>
